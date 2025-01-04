@@ -1,0 +1,79 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+file_path = r"C:\Users\simha\Desktop\Supermart Grocery Sales - Retail Analytics Dataset.csv"
+sales_data = pd.read_csv(file_path)
+
+print("Initial Dataset Overview:")
+print(sales_data.head(10))
+
+print("\nDataset Details:")
+sales_data.info()
+sales_data['Order Date'] = pd.to_datetime(sales_data['Order Date'], errors='coerce')
+
+if {'Category', 'Sales'}.issubset(sales_data.columns):
+    category_sales = sales_data.groupby('Category')['Sales'].sum()
+    print("\nTotal Sales by Category:")
+    print(category_sales)
+    category_sales.plot(kind='bar', title='Sales by Category', xlabel='Category', ylabel='Total Sales', figsize=(8, 6))
+    plt.show()
+else:
+    print("\nCategory or Sales column missing, skipping category sales analysis.")
+    
+sales_data['Month'] = sales_data['Order Date'].dt.strftime('%B')
+sales_data['Year'] = sales_data['Order Date'].dt.year
+
+if 'Sales' in sales_data.columns:
+    monthly_sales = sales_data.groupby('Month')['Sales'].sum().reset_index()
+    monthly_sales['Month_Order'] = pd.to_datetime(monthly_sales['Month'], format='%B').dt.month
+    monthly_sales = monthly_sales.sort_values(by='Month_Order')
+    
+    plt.figure(figsize=(6, 4))
+    plt.plot(monthly_sales['Month'], monthly_sales['Sales'], marker='o')
+    plt.title('Monthly Sales Trend')
+    plt.xlabel('Month')
+    plt.ylabel('Total Sales')
+    plt.xticks(rotation=45)
+    plt.grid()
+    plt.show()
+else:
+    print("\nSales column missing, unable to analyze monthly sales.")
+
+if {'Year', 'Sales'}.issubset(sales_data.columns):
+    yearly_sales = sales_data.groupby('Year')['Sales'].sum()
+    plt.figure(figsize=(6, 6))
+    yearly_sales.plot(kind='pie', autopct='%1.1f%%', startangle=90, labels=yearly_sales.index, title='Sales Distribution by Year')
+    plt.ylabel('')  
+    plt.show()
+else:
+    print("\nYear or Sales column missing, unable to analyze yearly sales.")
+    
+if {'City', 'Sales'}.issubset(sales_data.columns):
+    city_sales = sales_data.groupby('City')['Sales'].sum().sort_values(ascending=False).head(10)
+    
+    plt.figure(figsize=(6, 4))
+    city_sales.plot(kind='bar', color='teal')
+    plt.title('Top 10 Cities by Sales')
+    plt.xlabel('City')
+    plt.ylabel('Total Sales')
+    plt.xticks(rotation=45)
+    plt.show()
+else:
+    print("\nCity or Sales column missing, skipping city sales analysis.")
+    
+if 'Sales' in sales_data.columns:
+    sales_data['Projected Sales'] = sales_data['Sales'] * 0.9
+    sales_data['Profit/Loss'] = sales_data['Projected Sales'] - sales_data['Sales']
+    print("\nProfit/Loss Analysis (Sample Data):")
+    print(sales_data[['Sales', 'Projected Sales', 'Profit/Loss']].head())
+    
+    # Histogram for profit/loss
+    plt.figure(figsize=(6, 4))
+    sales_data['Profit/Loss'].plot(kind='hist', bins=20, color='orange', title='Profit/Loss Distribution')
+    plt.xlabel('Profit/Loss')
+    plt.ylabel('Frequency')
+    plt.show()
+else:
+    print("\nSales column missing, unable to calculate profit/loss.")
+print("\nUpdated Dataset (First 10 Rows):")
+print(sales_data.head(10))
