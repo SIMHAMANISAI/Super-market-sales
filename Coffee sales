@@ -1,0 +1,117 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.model_selection import train_test_split
+import plotly.express as px
+from datetime import datetime
+
+coffee_data = pd.read_csv(r"C:\Users\simha\Desktop\index.csv")
+print(coffee_data.head())
+print(coffee_data.info())
+print(coffee_data.describe().T)
+
+print("Missing Values:\n", coffee_data.isnull().sum())
+coffee_data.fillna(method='ffill', inplace=True)
+
+print("Duplicate Entries:", coffee_data.duplicated().sum())
+coffee_data.drop_duplicates(inplace=True)
+
+coffee_data['date'] = pd.to_datetime(coffee_data['date'], errors='coerce')
+coffee_data['datetime'] = pd.to_datetime(coffee_data['datetime'], errors='coerce')
+
+coffee_data['month'] = coffee_data['date'].dt.to_period('M').astype(str)
+coffee_data['day_of_week'] = coffee_data['date'].dt.day_name()
+coffee_data['hour'] = coffee_data['datetime'].dt.hour
+
+sales_by_coffee = coffee_data['coffee_name'].value_counts().reset_index()
+sales_by_coffee.columns = ['Coffee Name', 'Number of Sales']
+print("\nSales Summary by Coffee Type:")
+print(sales_by_coffee)
+
+fig = px.bar(sales_by_coffee, x='Coffee Name', y='Number of Sales', title="Sales by Coffee Type", 
+             labels={'Coffee Name': 'Coffee Name', 'Number of Sales': 'Number of Sales'})
+fig.update_xaxes(tickangle=45)
+fig.show()
+
+if 'payment_method' in coffee_data.columns:
+    payment_method_sales = coffee_data['payment_method'].value_counts().reset_index()
+    payment_method_sales.columns = ['Payment Method', 'Number of Sales']
+    print("\nSales by Payment Method:")
+    print(payment_method_sales)
+
+    fig = px.bar(payment_method_sales, x='Payment Method', y='Number of Sales', title="Sales by Payment Method", 
+                 labels={'Payment Method': 'Payment Method', 'Number of Sales': 'Number of Sales'})
+    fig.show()
+    
+monthly_sales = coffee_data.groupby(['month', 'coffee_name']).size().unstack(fill_value=0)
+monthly_sales = monthly_sales.reset_index()
+print("\nMonthly Sales Trends:")
+print(monthly_sales)
+
+monthly_sales.plot(figsize=(12, 6), title='Monthly Sales Trends')
+plt.xlabel('Month')
+plt.ylabel('Sales')
+plt.legend(title='Coffee Name')
+plt.show()
+
+weekly_sales = coffee_data.groupby('day_of_week').size().reindex(
+    ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'])
+weekly_sales_df = weekly_sales.reset_index()
+weekly_sales_df.columns = ['Day of the Week', 'Number of Sales']
+print("\nWeekly Sales Trends:")
+print(weekly_sales_df)
+
+fig = px.bar(weekly_sales_df, x='Day of the Week', y='Number of Sales', title='Weekly Sales Trends', 
+             labels={'Day of the Week': 'Day of the Week', 'Number of Sales': 'Sales'})
+fig.show()
+
+hourly_sales = coffee_data.groupby('hour').size().reset_index(name='Sales')
+print("\nHourly Sales Trends:")
+print(hourly_sales)
+
+fig = px.bar(hourly_sales, x='hour', y='Sales', title='Hourly Sales Trends', 
+             labels={'hour': 'Hour of the Day', 'Sales': 'Number of Sales'})
+fig.show()
+
+daily_sales = coffee_data.groupby('date').size()
+train_data, test_data = train_test_split(daily_sales, test_size=0.2, shuffle=False)
+model = ARIMA(train_data, order=(5, 1, 0))
+model_fit = model.fit()
+forecast = model_fit.forecast(steps=len(test_data))
+plt.figure(figsize=(12, 6))
+plt.plot(daily_sales[-60:], label='Actual Sales')
+plt.plot(pd.date_range(daily_sales.index[-len(test_data)], periods=len(test_data)), forecast, label='Forecast', color='red')
+plt.title('Next Day/Week Sales Forecast')
+plt.xlabel('Date')
+plt.ylabel('Sales')
+plt.legend()
+plt.show()
+
+future_forecast = model_fit.forecast(steps=30)
+print("\nNext 30 Days Sales Forecast:\n", future_forecast)
+
+if 'customer_id' in coffee_data.columns:
+    customer_purchases = coffee_data.groupby(['customer_id', 'coffee_name']).size().unstack(fill_value=0).reset_index()
+    customer_purchases.columns = ['Customer ID'] + list(customer_purchases.columns[1:])
+    print("\nPurchases by Customer:")
+    print(customer_purchases)
+
+    customer_purchases.set_index('Customer ID').plot(kind='bar', stacked=True, figsize=(12, 6), title='Purchases by Customers')
+    plt.xlabel('Customer ID')
+    plt.ylabel('Number of Purchases')
+    plt.legend(title='Coffee Name')
+    plt.show()
+else:
+    print("Customer data not available in the dataset.")
+
+hourly_traffic_by_coffee = coffee_data.groupby(['hour', 'coffee_name']).size().unstack(fill_value=0)
+hourly_traffic_by_coffee = hourly_traffic_by_coffee.reset_index()
+print("\nHourly Traffic by Coffee Type:")
+print(hourly_traffic_by_coffee)
+
+fig = px.line(hourly_traffic_by_coffee, x='hour', y=hourly_traffic_by_coffee.columns[1:], title='Hourly Shopping Traffic for Each Coffee Type')
+fig.update_layout(xaxis_title='Hour of the Day', yaxis_title='Number of Sales')
+fig.show()
